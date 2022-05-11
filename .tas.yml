@@ -2,13 +2,13 @@
 framework: jest
 preRun:
      command:
-        - yarn && yarn build
+        - yarn install
 preMerge:
   pattern:
-    - "./**/__tests__/*.js"
+    - "**/__tests__/*.test.js"
 postMerge:
   pattern: 
-    - "./**/__tests__/*.js"
+    - "**/__tests__/*.test.js"
 postRun:
      command:
         - yarn --version
