@@ -44,31 +44,41 @@ const createProvider = config => {
   try {
     provider = require(modulePath);
   } catch (err) {
-    throw new Error(`Could not load upload provider "${providerName}".`);
+    const newError = new Error(`Could not load upload provider "${providerName}".`);
+    newError.stack = err.stack;
+    throw newError;
   }
 
   const providerInstance = provider.init(providerOptions);
 
-  return Object.assign(Object.create(baseProvider), {
-    ...providerInstance,
-    upload(file, options = actionOptions.upload) {
-      return providerInstance.upload(file, options);
-    },
-    delete(file, options = actionOptions.delete) {
-      return providerInstance.delete(file, options);
-    },
+  if (!providerInstance.delete) {
+    throw new Error(`The upload provider "${providerName}" doesn't implement the delete method.`);
+  }
+
+  if (!providerInstance.upload && !providerInstance.uploadStream) {
+    throw new Error(
+      `The upload provider "${providerName}" doesn't implement the uploadStream nor the upload method.`
+    );
+  }
+
+  if (!providerInstance.uploadStream) {
+    process.emitWarning(
+      `The upload provider "${providerName}" doesn't implement the uploadStream function. Strapi will fallback on the upload method. Some performance issues may occur.`
+    );
+  }
+
+  const wrappedProvider = _.mapValues(providerInstance, (method, methodName) => {
+    return async function(file, options = actionOptions[methodName]) {
+      return providerInstance[methodName](file, options);
+    };
   });
+
+  return Object.assign(Object.create(baseProvider), wrappedProvider);
 };
 
 const baseProvider = {
   extend(obj) {
     Object.assign(this, obj);
-  },
-  upload() {
-    throw new Error('Provider upload method is not implemented');
-  },
-  delete() {
-    throw new Error('Provider delete method is not implemented');
   },
 };
 
